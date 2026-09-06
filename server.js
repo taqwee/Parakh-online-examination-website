@@ -1,28 +1,50 @@
 /**
- * server.js - Backend Evaluation Server
- * Handles multi-select & single-select scoring and exam completions.
+ * server.js - Unified Production Server for Parakh Online Examination
+ * Serves Vite static client build & handles secure assessment evaluations.
  */
 import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
 const app = express();
+
+// Derive __dirname for ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Resolve URL & Key with fallbacks
+// Resolve Supabase URL & Service Key with fallbacks
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ Missing Supabase URL or Key in .env file!');
+  console.error(
+    '❌ Missing Supabase credentials. Define SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your environment variables.'
+  );
   process.exit(1);
 }
 
 const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+
+// ==========================================
+// 1. API & HEALTH ROUTES (MUST BE DEFINED FIRST)
+// ==========================================
+
+// Health check endpoint for Render monitoring
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 
 /**
  * POST /api/exams/submit
@@ -31,8 +53,8 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
 app.post('/api/exams/submit', async (req, res) => {
   const { attemptId, answers } = req.body;
 
-  if (!attemptId || !answers) {
-    return res.status(400).json({ error: 'Attempt ID and answers payload are required.' });
+  if (!attemptId || typeof answers !== 'object' || answers === null) {
+    return res.status(400).json({ error: 'Valid attemptId and answers payload are required.' });
   }
 
   try {
@@ -59,13 +81,17 @@ app.post('/api/exams/submit', async (req, res) => {
 
     if (qErr) throw qErr;
 
+    if (!questions || questions.length === 0) {
+      return res.status(400).json({ error: 'No questions found for this examination.' });
+    }
+
     let calculatedScore = 0;
     const answerBatch = [];
 
     // 3. Evaluate each question
-    questions.forEach(question => {
+    questions.forEach((question) => {
       const candidateRawChoice = answers[question.id];
-      
+
       let selectedOptionIds = [];
       if (Array.isArray(candidateRawChoice)) {
         selectedOptionIds = candidateRawChoice.filter(Boolean);
@@ -73,58 +99,60 @@ app.post('/api/exams/submit', async (req, res) => {
         selectedOptionIds = [candidateRawChoice];
       }
 
-      const correctOptionIds = question.options
-        .filter(opt => opt.is_correct)
-        .map(opt => opt.id);
+      const correctOptionIds = (question.options || [])
+        .filter((opt) => opt.is_correct)
+        .map((opt) => opt.id);
 
-        // Evaluate choices (supports full matching & partial credit)
-        const hasIncorrectPick = selectedOptionIds.some(id => !correctOptionIds.includes(id));
-        const correctPicksCount = selectedOptionIds.filter(id => correctOptionIds.includes(id)).length;
-        const isExactMatch = 
-          selectedOptionIds.length > 0 &&
-          selectedOptionIds.length === correctOptionIds.length &&
-          !hasIncorrectPick;
-    
-        let awardedMarks = 0;
-    
-        if (!hasIncorrectPick && selectedOptionIds.length > 0) {
-          if (isExactMatch) {
-            // Full score when all correct options are selected
-            awardedMarks = Number(question.marks || 1);
-          } else {
-            // Proportional partial credit when some correct options are selected (and 0 incorrect ones)
-            awardedMarks = Number(((correctPicksCount / correctOptionIds.length) * Number(question.marks || 1)).toFixed(2));
-          }
+      const hasIncorrectPick = selectedOptionIds.some((id) => !correctOptionIds.includes(id));
+      const correctPicksCount = selectedOptionIds.filter((id) => correctOptionIds.includes(id)).length;
+      const isExactMatch =
+        selectedOptionIds.length > 0 &&
+        selectedOptionIds.length === correctOptionIds.length &&
+        !hasIncorrectPick;
+
+      let awardedMarks = 0;
+
+      if (!hasIncorrectPick && selectedOptionIds.length > 0 && correctOptionIds.length > 0) {
+        if (isExactMatch) {
+          awardedMarks = Number(question.marks || 1);
+        } else {
+          // Proportional partial credit for multi-select
+          awardedMarks = Number(
+            ((correctPicksCount / correctOptionIds.length) * Number(question.marks || 1)).toFixed(2)
+          );
         }
-    
-        calculatedScore += awardedMarks;
-    
-        answerBatch.push({
-          attempt_id: attemptId,
-          question_id: question.id,
-          selected_option_ids: selectedOptionIds,
-          is_correct: !hasIncorrectPick && correctPicksCount > 0 // Marked correct if at least partial credit awarded
-        });
+      }
+
+      calculatedScore += awardedMarks;
+
+      answerBatch.push({
+        attempt_id: attemptId,
+        question_id: question.id,
+        selected_option_ids: selectedOptionIds,
+        is_correct: !hasIncorrectPick && correctPicksCount > 0,
+      });
     });
 
-    const totalMarks = attempt.exams?.total_marks || 1;
+    const totalMarks = attempt.exams?.total_marks || 100;
     const percentage = Number(((calculatedScore / totalMarks) * 100).toFixed(2));
 
-    // 4. Batch upsert answers
-    const { error: batchErr } = await supabaseAdmin
-      .from('user_answers')
-      .upsert(answerBatch, { onConflict: 'attempt_id, question_id' });
+    // 4. Batch upsert candidate answers
+    if (answerBatch.length > 0) {
+      const { error: batchErr } = await supabaseAdmin
+        .from('user_answers')
+        .upsert(answerBatch, { onConflict: 'attempt_id, question_id' });
 
-    if (batchErr) throw batchErr;
+      if (batchErr) throw batchErr;
+    }
 
-    // 5. Finalize attempt record
+    // 5. Finalize exam attempt
     const { data: updatedAttempt, error: updateErr } = await supabaseAdmin
       .from('exam_attempts')
       .update({
         submitted_at: new Date().toISOString(),
         score: calculatedScore,
         percentage: percentage,
-        status: 'completed'
+        status: 'completed',
       })
       .eq('id', attemptId)
       .select()
@@ -137,16 +165,28 @@ app.post('/api/exams/submit', async (req, res) => {
       score: calculatedScore,
       percentage: percentage,
       passed: calculatedScore >= (attempt.exams?.pass_marks || 0),
-      attempt: updatedAttempt
+      attempt: updatedAttempt,
     });
-
   } catch (error) {
     console.error('[Evaluation Error]:', error);
-    return res.status(500).json({ error: 'Server evaluation failed. Contact proctor.' });
+    return res.status(500).json({ error: 'Server evaluation failed. Please contact your proctor.' });
   }
 });
 
+// ==========================================
+// 2. STATIC ASSETS & SPA ROUTING FALLBACK
+// ==========================================
+
+// Serve compiled Vite frontend assets from /dist
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Fallback: Send index.html for any frontend navigation (e.g. /dashboard, /live-room/:id)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+// Bind to PORT and host '0.0.0.0' for cloud container compatibility
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`✓ SkillAssess Evaluation Engine listening on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✓ Parakh Examination Engine & Web Client listening on port ${PORT}`);
 });
