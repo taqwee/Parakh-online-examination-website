@@ -273,7 +273,7 @@ export const Dashboard = () => {
                             onClick={() => navigate(`/live-room/${exam.id}`)}
                             className="px-4 py-2 bg-[#F3DEB8] hover:bg-[#ECD1A0] text-[#845B17] rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
                           >
-                            <Clock className="w-3.5 h-3.5" /> Join Lobby
+                            <Clock className="w-3.5 h-3.5" /> Join
                           </button>
                         ) : (
                           <button

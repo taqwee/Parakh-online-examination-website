@@ -1,6 +1,7 @@
 /**
  * src/pages/Admin.jsx
  * Admin portal: Category CRUD management, Exam listing, toggle publish, and deletion.
+ * Styled with PARAKH Warm Natural Palette.
  */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -8,7 +9,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import { ExamBuilderModal } from '../components/ExamBuilderModal';
-import { Plus, Trash2, Layers, BookOpen, Clock, Users } from 'lucide-react';
+import { Plus, Trash2, Layers, Radio, Sparkles } from 'lucide-react';
 
 export const Admin = () => {
   const { profile } = useAuth();
@@ -36,7 +37,10 @@ export const Admin = () => {
     setLoading(true);
     try {
       const [examsRes, catsRes] = await Promise.all([
-        supabase.from('exams').select('*, categories(name), questions(count)').order('created_at', { ascending: false }),
+        supabase
+          .from('exams')
+          .select('*, categories(name), questions(count)')
+          .order('created_at', { ascending: false }),
         supabase.from('categories').select('*').order('name')
       ]);
 
@@ -92,30 +96,30 @@ export const Admin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-[#F8F6F0] flex flex-col">
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 w-full flex-1">
         {/* HERO TITLE & ACTION */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Administrator Console</h1>
-            <p className="text-xs text-slate-500">Author examinations, configure categories, and oversee assessment delivery.</p>
+            <h1 className="text-2xl font-black text-[#2D3234] tracking-tight">Administrator Console</h1>
+            <p className="text-xs text-[#687074]">Author examinations, configure categories, and oversee assessment delivery.</p>
           </div>
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm shadow-indigo-100 transition self-start"
+            className="px-4 py-2.5 bg-[#4A6B6C] hover:bg-[#3B5758] text-[#F8F6F0] text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm transition self-start"
           >
             <Plus className="w-4 h-4" /> Create New Exam
           </button>
         </div>
 
         {/* 1. CATEGORY MANAGEMENT SECTION */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-5">
+        <div className="bg-white border border-[#E8E4D9] rounded-2xl p-6 shadow-sm space-y-5">
           <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-indigo-600" />
-            <h2 className="text-sm font-bold text-slate-900">Academic & Exam Categories</h2>
+            <Layers className="w-4 h-4 text-[#4A6B6C]" />
+            <h2 className="text-sm font-bold text-[#2D3234]">Academic & Exam Categories</h2>
           </div>
 
           {/* Inline Form */}
@@ -123,22 +127,22 @@ export const Admin = () => {
             <input
               type="text"
               required
-              placeholder="New Category Name (e.g. JEE Advanced)"
+              placeholder="New Category Name (e.g. Information Technology)"
               value={categoryName}
               onChange={(e) => setCategoryName(e.target.value)}
-              className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="px-3.5 py-2.5 bg-[#FAF9F5] border border-[#E8E4D9] rounded-xl text-xs text-[#2D3234] placeholder-[#9AA1A6] focus:outline-none focus:border-[#4A6B6C] focus:bg-white transition"
             />
             <input
               type="text"
               placeholder="Description (Optional)"
               value={categoryDesc}
               onChange={(e) => setCategoryDesc(e.target.value)}
-              className="px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="px-3.5 py-2.5 bg-[#FAF9F5] border border-[#E8E4D9] rounded-xl text-xs text-[#2D3234] placeholder-[#9AA1A6] focus:outline-none focus:border-[#4A6B6C] focus:bg-white transition"
             />
             <button
               type="submit"
               disabled={creatingCategory}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition disabled:opacity-50"
+              className="px-4 py-2.5 bg-[#2D3234] hover:bg-[#1E2223] text-[#F8F6F0] rounded-xl text-xs font-bold transition disabled:opacity-50"
             >
               {creatingCategory ? 'Adding...' : 'Add Category'}
             </button>
@@ -149,12 +153,13 @@ export const Admin = () => {
             {categories.map((c) => (
               <span
                 key={c.id}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-medium border border-slate-200"
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#FAF9F5] text-[#2D3234] rounded-xl text-xs font-medium border border-[#E8E4D9]"
               >
                 <span>{c.name}</span>
                 <button
                   onClick={() => handleDeleteCategory(c.id)}
-                  className="text-slate-400 hover:text-red-600 transition"
+                  className="text-[#9AA1A6] hover:text-[#A63B3B] transition"
+                  title="Delete category"
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>
@@ -164,59 +169,85 @@ export const Admin = () => {
         </div>
 
         {/* 2. EXAMS CATALOG TABLE */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
-          <div className="p-6 border-b border-slate-100">
-            <h2 className="text-sm font-bold text-slate-900">Active Examination Catalog</h2>
+        <div className="bg-white border border-[#E8E4D9] rounded-2xl overflow-hidden shadow-sm">
+          <div className="p-6 border-b border-[#F0ECE1]">
+            <h2 className="text-sm font-bold text-[#2D3234]">Active Examination Catalog</h2>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-xs">
-              <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider font-semibold text-left">
+            <table className="min-w-full divide-y divide-[#E8E4D9] text-xs">
+              <thead className="bg-[#FAF9F5] text-[#687074] uppercase tracking-wider font-bold text-left">
                 <tr>
                   <th className="px-6 py-3.5">Title</th>
                   <th className="px-6 py-3.5">Category</th>
+                  <th className="px-6 py-3.5">Format</th>
                   <th className="px-6 py-3.5">Duration</th>
                   <th className="px-6 py-3.5">Marks</th>
                   <th className="px-6 py-3.5">Status</th>
                   <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+              <tbody className="divide-y divide-[#F0ECE1] font-medium text-[#2D3234]">
                 {loading ? (
-                  <tr><td colSpan="6" className="px-6 py-8 text-center text-slate-400">Loading catalog...</td></tr>
+                  <tr><td colSpan="7" className="px-6 py-8 text-center text-[#687074]">Loading catalog...</td></tr>
                 ) : exams.length === 0 ? (
-                  <tr><td colSpan="6" className="px-6 py-8 text-center text-slate-400">No exams authored yet. Click "Create New Exam" above.</td></tr>
+                  <tr><td colSpan="7" className="px-6 py-8 text-center text-[#687074]">No exams authored yet. Click "Create New Exam" above.</td></tr>
                 ) : (
-                  exams.map((e) => (
-                    <tr key={e.id} className="hover:bg-slate-50/80 transition">
-                      <td className="px-6 py-4 font-bold text-slate-900">{e.title}</td>
-                      <td className="px-6 py-4">
-                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded font-semibold text-[11px]">
-                          {e.categories?.name || 'General'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">{e.duration_minutes} Mins</td>
-                      <td className="px-6 py-4">{e.total_marks} Marks</td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => togglePublish(e.id, e.is_published)}
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider transition ${
-                            e.is_published ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          {e.is_published ? 'PUBLISHED' : 'DRAFT'}
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => handleDeleteExam(e.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  exams.map((e) => {
+                    const isLive = e.exam_type === 'live' || Boolean(e.scheduled_start_time);
+
+                    return (
+                      <tr key={e.id} className="hover:bg-[#FAF9F5] transition">
+                        <td className="px-6 py-4 font-bold text-[#2D3234]">
+                          <div>{e.title}</div>
+                          {isLive && e.scheduled_start_time && (
+                            <div className="text-[10px] text-[#D97757] font-semibold mt-0.5">
+                              Starts: {new Date(e.scheduled_start_time).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-2.5 py-1 bg-[#E9EFF0] text-[#3B5758] border border-[#D5E1E2] rounded-lg font-bold text-[11px] uppercase tracking-wider">
+                            {e.categories?.name || 'General'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {isLive ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-[#FBECE7] text-[#D97757] border border-[#F6C6B8] uppercase tracking-wider">
+                              <Radio className="w-2.5 h-2.5 text-[#D97757] animate-pulse" /> Live Hall
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FAF9F5] text-[#687074] border border-[#E8E4D9]">
+                              <Sparkles className="w-2.5 h-2.5 text-[#9AA1A6]" /> Practice
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">{e.duration_minutes} Mins</td>
+                        <td className="px-6 py-4">{e.total_marks} Marks</td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => togglePublish(e.id, e.is_published)}
+                            className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold tracking-wider transition ${
+                              e.is_published 
+                                ? 'bg-[#EBF4EE] text-[#426E4E] border border-[#D1E6D6]' 
+                                : 'bg-[#FAF9F5] text-[#687074] border border-[#E8E4D9]'
+                            }`}
+                          >
+                            {e.is_published ? 'PUBLISHED' : 'DRAFT'}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => handleDeleteExam(e.id)}
+                            className="p-1.5 text-[#9AA1A6] hover:text-[#A63B3B] rounded-lg hover:bg-[#F9EDED] transition"
+                            title="Delete exam"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -235,3 +266,5 @@ export const Admin = () => {
     </div>
   );
 };
+
+export default Admin;
