@@ -181,7 +181,8 @@ app.post('/api/exams/submit', async (req, res) => {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Fallback: Send index.html for any frontend navigation (e.g. /dashboard, /live-room/:id)
-app.get('*', (req, res) => {
+// Express 5 compatible wildcard
+app.get('/*splat', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
