@@ -1,13 +1,13 @@
 /**
  * src/components/ExamBuilderModal.jsx
- * Admin Exam Builder with 2-Step Marks Verification, Scheduled Publishing, 
- * Custom Instructions, Image Upload, and Question Authoring.
+ * Admin Exam Builder with 2-Step Marks Verification, Practice vs Live Mode Selector,
+ * Scheduled Publishing, Custom Instructions, Image Upload, and Question Authoring.
  */
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { 
   X, Plus, Trash2, Calendar, Clock, UploadCloud, 
-  FileText, AlertTriangle, CheckCircle2 
+  FileText, AlertTriangle, CheckCircle2, Radio, Sparkles
 } from 'lucide-react';
 
 export const ExamBuilderModal = ({ isOpen, onClose, onExamCreated, categories = [], currentUserId }) => {
@@ -25,8 +25,8 @@ export const ExamBuilderModal = ({ isOpen, onClose, onExamCreated, categories = 
   const [passMarks, setPassMarks] = useState(5);
   const [isPublished, setIsPublished] = useState(true);
 
-  // Scheduled Publishing State
-  const [isScheduled, setIsScheduled] = useState(false);
+  // Delivery Mode & Schedule State
+  const [examType, setExamType] = useState('practice'); // 'practice' | 'live'
   const [scheduledStartTime, setScheduledStartTime] = useState('');
   const [scheduledEndTime, setScheduledEndTime] = useState('');
 
@@ -170,7 +170,7 @@ export const ExamBuilderModal = ({ isOpen, onClose, onExamCreated, categories = 
     e.preventDefault();
     setErrorMessage('');
 
-    // Check basic question completeness
+    // Check question completeness
     for (let i = 0; i < questions.length; i++) {
       const hasCorrect = questions[i].options.some(o => o.is_correct);
       if (!hasCorrect) {
@@ -179,15 +179,17 @@ export const ExamBuilderModal = ({ isOpen, onClose, onExamCreated, categories = 
       }
     }
 
-    // Schedule checks
-    if (isScheduled && !scheduledStartTime) {
-      setErrorMessage('Please select a start date and time for the scheduled exam.');
-      return;
-    }
+    // Schedule checks for Live Exam
+    if (examType === 'live') {
+      if (!scheduledStartTime) {
+        setErrorMessage('Live examinations require a scheduled start date & time.');
+        return;
+      }
 
-    if (isScheduled && scheduledEndTime && new Date(scheduledEndTime) <= new Date(scheduledStartTime)) {
-      setErrorMessage('Scheduled end time must be after start time.');
-      return;
+      if (scheduledEndTime && new Date(scheduledEndTime) <= new Date(scheduledStartTime)) {
+        setErrorMessage('Scheduled end time must be after start time.');
+        return;
+      }
     }
 
     // Check for Marks Mismatch
@@ -196,7 +198,6 @@ export const ExamBuilderModal = ({ isOpen, onClose, onExamCreated, categories = 
       return;
     }
 
-    // If total marks match, proceed to save directly
     saveExamToDatabase(Number(totalMarks));
   };
 
@@ -220,9 +221,10 @@ export const ExamBuilderModal = ({ isOpen, onClose, onExamCreated, categories = 
           duration_minutes: parseInt(durationMinutes, 10),
           total_marks: finalTotalMarks,
           pass_marks: parseInt(passMarks, 10),
+          exam_type: examType,
+          scheduled_start_time: scheduledStartTime ? new Date(scheduledStartTime).toISOString() : null,
+          scheduled_end_time: scheduledEndTime ? new Date(scheduledEndTime).toISOString() : null,
           is_published: isPublished,
-          scheduled_start_time: isScheduled && scheduledStartTime ? new Date(scheduledStartTime).toISOString() : null,
-          scheduled_end_time: isScheduled && scheduledEndTime ? new Date(scheduledEndTime).toISOString() : null,
           created_by: currentUserId
         })
         .select()
@@ -275,9 +277,7 @@ export const ExamBuilderModal = ({ isOpen, onClose, onExamCreated, categories = 
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white max-w-3xl w-full rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-8 max-h-[92vh] overflow-y-auto space-y-6">
         
-        {/* ========================================================================= */}
-        {/* STEP 2: MARKS MISMATCH 2-STEP CONFIRMATION MODAL */}
-        {/* ========================================================================= */}
+        {/* MARKS MISMATCH MODAL */}
         {showMarksMismatchModal && (
           <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-[60] flex items-center justify-center p-4">
             <div className="bg-white max-w-md w-full rounded-3xl p-6 sm:p-8 space-y-5 text-center shadow-2xl border border-amber-200">
@@ -332,7 +332,7 @@ export const ExamBuilderModal = ({ isOpen, onClose, onExamCreated, categories = 
         <div className="flex justify-between items-center pb-4 border-b border-slate-100">
           <div>
             <h3 className="text-xl font-bold text-slate-900">Exam Authoring Studio</h3>
-            <p className="text-xs text-slate-500">Configure parameters, schedule publishing, and construct questions.</p>
+            <p className="text-xs text-slate-500">Configure parameters, set delivery format, and construct questions.</p>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-50">
             <X className="w-5 h-5" />
@@ -374,6 +374,79 @@ export const ExamBuilderModal = ({ isOpen, onClose, onExamCreated, categories = 
             </div>
           </div>
 
+          {/* ASSESSMENT FORMAT SELECTOR (PRACTICE VS LIVE HALL) */}
+          <div className="space-y-3 p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+              Assessment Delivery Format
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setExamType('practice')}
+                className={`p-3 rounded-xl text-left border transition ${
+                  examType === 'practice'
+                    ? 'border-indigo-600 bg-white shadow-sm ring-1 ring-indigo-600'
+                    : 'border-slate-200 bg-white/60 text-slate-500 hover:bg-white'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                  Self-Paced Practice
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Students attempt on-demand at any time with an individual timer.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setExamType('live')}
+                className={`p-3 rounded-xl text-left border transition ${
+                  examType === 'live'
+                    ? 'border-amber-600 bg-amber-50/50 shadow-sm ring-1 ring-amber-600'
+                    : 'border-slate-200 bg-white/60 text-slate-500 hover:bg-white'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-bold text-xs text-amber-900">
+                  <Radio className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                  Synchronized Live Hall
+                </div>
+                <p className="text-[11px] text-amber-700/80 mt-1">
+                  All students join a waiting lobby; starts together at the scheduled time.
+                </p>
+              </button>
+            </div>
+
+            {/* Date-time inputs display when Live Hall is chosen or when scheduling practice */}
+            {(examType === 'live' || scheduledStartTime) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-600" /> Start Date & Time (Goes Live) {examType === 'live' && '*'}
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required={examType === 'live'}
+                    value={scheduledStartTime}
+                    onChange={(e) => setScheduledStartTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" /> End Date & Time (Closes) (Optional)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={scheduledEndTime}
+                    onChange={(e) => setScheduledEndTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* DURATION & MARKS */}
           <div className="grid grid-cols-3 gap-4">
             <div>
@@ -409,50 +482,6 @@ export const ExamBuilderModal = ({ isOpen, onClose, onExamCreated, categories = 
                 className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs"
               />
             </div>
-          </div>
-
-          {/* SCHEDULED PUBLISHING CONTROLS */}
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isScheduled}
-                  onChange={(e) => setIsScheduled(e.target.checked)}
-                  className="w-4 h-4 text-indigo-600 rounded"
-                />
-                Schedule Exam Availability Window
-              </label>
-              <span className="text-[11px] text-slate-400">Makes test visible in advance as "Upcoming"</span>
-            </div>
-
-            {isScheduled && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-indigo-600" /> Start Date & Time (Goes Live)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required={isScheduled}
-                    value={scheduledStartTime}
-                    onChange={(e) => setScheduledStartTime(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-slate-400" /> End Date & Time (Closes) (Optional)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={scheduledEndTime}
-                    onChange={(e) => setScheduledEndTime(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           <div>

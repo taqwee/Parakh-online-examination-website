@@ -10,6 +10,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Exam } from './pages/Exam';
 import { Results } from './pages/Results';
 import { Admin } from './pages/Admin';
+import { LiveExamRoom } from './pages/LiveExamRoom';
 
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
   const { user, profile, loading } = useAuth();
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/results/:attemptId" element={<ProtectedRoute><Results /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/live-room/:id"element={<ProtectedRoute><LiveExamRoom /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

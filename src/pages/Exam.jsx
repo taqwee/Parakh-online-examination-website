@@ -71,7 +71,7 @@ export const Exam = () => {
       const targetId = attemptIdToSubmit || attempt?.id;
       const targetAnswers = finalAnswers || answersRef.current;
 
-      const res = await fetch('http://localhost:4000/api/exams/submit', {
+      const res = await fetch('/api/exams/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ attemptId: targetId, answers: targetAnswers })
