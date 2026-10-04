@@ -109,6 +109,19 @@ export const LiveExamRoom = () => {
       </div>
     );
   }
+  if (exam.is_active === false) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center space-y-3 shadow-sm">
+          <p className="text-rose-600 font-bold text-base">Assessment Closed</p>
+          <p className="text-xs text-slate-500">This examination has been archived by the administrator and is no longer accepting attempts.</p>
+          <button onClick={() => navigate('/dashboard')} className="mt-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold transition">
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">

@@ -47,6 +47,64 @@ app.get('/health', (req, res) => {
 });
 
 /**
+ * GET /api/admin/exams/:id/results
+ * Fetches candidate results and ranks them using multi-criteria tie-breakers:
+ * Marks -> Least Negatives -> Most Positives -> Accuracy -> Attempt count
+ */
+app.get('/api/admin/exams/:id/results', async (req, res) => {
+  try {
+    const { id: examId } = req.params;
+
+    const { data: attempts, error } = await supabaseAdmin
+      .from('exam_attempts')
+      .select('id, user_id, score, percentage, status, submitted_at, total_attempted, correct_answers, incorrect_answers')
+      .eq('exam_id', examId);
+
+    if (error) throw error;
+    if (!attempts || attempts.length === 0) return res.json([]);
+
+    const userIds = attempts.map((a) => a.user_id);
+    const { data: profiles } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', userIds);
+
+    const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+
+    // 1. Merge Profiles and calculate Accuracy
+    let merged = attempts.map((a) => {
+      const accuracy = a.total_attempted > 0 ? (a.correct_answers / a.total_attempted) * 100 : 0;
+      return {
+        ...a,
+        candidateName: profileMap.get(a.user_id)?.full_name || 'Candidate',
+        candidateEmail: profileMap.get(a.user_id)?.email || '—',
+        accuracy: accuracy
+      };
+    });
+
+    // 2. Apply Tie-Breaker Ranking Logic
+    merged.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score; // 1st: Highest Marks
+      if (a.incorrect_answers !== b.incorrect_answers) return a.incorrect_answers - b.incorrect_answers; // 2nd: Least Negatives (Lower is better)
+      if (b.correct_answers !== a.correct_answers) return b.correct_answers - a.correct_answers; // 3rd: Most Positives
+      if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy; // 4th: Highest Accuracy
+      return b.total_attempted - a.total_attempted; // 5th: Highest Attempted
+    });
+
+    // 3. Assign Ranks
+    merged = merged.map((attempt, index) => ({
+      ...attempt,
+      rank: index + 1
+    }));
+
+    res.json(merged);
+  } catch (err) {
+    console.error('[Admin Results Error]:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * POST /api/exams/submit
  * Body: { attemptId: string, answers: { [questionId: string]: string | string[] } }
  */
@@ -86,6 +144,9 @@ app.post('/api/exams/submit', async (req, res) => {
     }
 
     let calculatedScore = 0;
+    let correctCount = 0;
+    let incorrectCount = 0;
+    let attemptedCount = 0;
     const answerBatch = [];
 
     // 3. Evaluate each question
@@ -111,6 +172,16 @@ app.post('/api/exams/submit', async (req, res) => {
         !hasIncorrectPick;
 
       let awardedMarks = 0;
+
+      // Track granular attempt stats for tie-breakers
+      if (selectedOptionIds.length > 0) {
+        attemptedCount++;
+        if (!hasIncorrectPick && correctPicksCount > 0) {
+          correctCount++;
+        } else {
+          incorrectCount++;
+        }
+      }
 
       if (!hasIncorrectPick && selectedOptionIds.length > 0 && correctOptionIds.length > 0) {
         if (isExactMatch) {
@@ -145,7 +216,7 @@ app.post('/api/exams/submit', async (req, res) => {
       if (batchErr) throw batchErr;
     }
 
-    // 5. Finalize exam attempt
+    // 5. Finalize exam attempt with granular tie-breaker stats
     const { data: updatedAttempt, error: updateErr } = await supabaseAdmin
       .from('exam_attempts')
       .update({
@@ -153,6 +224,9 @@ app.post('/api/exams/submit', async (req, res) => {
         score: calculatedScore,
         percentage: percentage,
         status: 'completed',
+        total_attempted: attemptedCount,
+        correct_answers: correctCount,
+        incorrect_answers: incorrectCount
       })
       .eq('id', attemptId)
       .select()

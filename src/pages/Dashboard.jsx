@@ -39,7 +39,8 @@ export const Dashboard = () => {
           .order('created_at', { ascending: false }),
         supabase
           .from('exam_attempts')
-          .select('*, exams(title, pass_marks, total_marks)')
+          // Added results_published to the select query to block scorecard views if hidden
+          .select('*, exams(title, pass_marks, total_marks, results_published)')
           .eq('user_id', profile?.id)
           .order('started_at', { ascending: false })
       ]);
@@ -198,7 +199,7 @@ export const Dashboard = () => {
                     className={`bg-white rounded-2xl border p-6 shadow-sm flex flex-col justify-between transition ${
                       status.isUpcoming
                         ? 'border-[#E4D1B9] bg-[#FAF6EE]'
-                        : status.isExpired
+                        : status.isExpired || exam.is_active === false
                         ? 'border-[#E8E4D9] opacity-60'
                         : 'border-[#E8E4D9] hover:border-[#D5CEBF] hover:shadow-md'
                     }`}
@@ -250,8 +251,12 @@ export const Dashboard = () => {
                         <span className="font-bold text-[#2D3234]">{exam.pass_marks}</span> to pass
                       </div>
 
-                      {/* Dynamic CTA Handling: Practice vs Live Room vs Expired */}
-                      {status.isAvailable ? (
+                      {/* Dynamic CTA Handling: Archiving & Scheduling Blocks */}
+                      {exam.is_active === false ? (
+                        <span className="px-3 py-1.5 bg-[#F9EDED] text-[#A63B3B] font-bold text-[11px] rounded-xl border border-[#F2D1D1] inline-flex items-center gap-1.5 uppercase tracking-wider">
+                          <Lock className="w-3 h-3" /> Archived
+                        </span>
+                      ) : status.isAvailable ? (
                         isLiveType ? (
                           <button
                             onClick={() => navigate(`/live-room/${exam.id}`)}
@@ -273,12 +278,12 @@ export const Dashboard = () => {
                             onClick={() => navigate(`/live-room/${exam.id}`)}
                             className="px-4 py-2 bg-[#F3DEB8] hover:bg-[#ECD1A0] text-[#845B17] rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
                           >
-                            <Clock className="w-3.5 h-3.5" /> Join
+                            <Clock className="w-3.5 h-3.5" /> Join Lobby
                           </button>
                         ) : (
                           <button
                             disabled
-                            className="px-4 py-2 bg-[#F3DEB8] text-[#845B17] rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-not-allowed"
+                            className="px-4 py-2 bg-[#F3DEB8] text-[#845B17] rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-not-allowed opacity-70"
                           >
                             <Lock className="w-3.5 h-3.5" /> Scheduled
                           </button>
@@ -325,33 +330,58 @@ export const Dashboard = () => {
                   ) : (
                     attempts.map((attempt) => {
                       const isPass = (Number(attempt.score) || 0) >= (attempt.exams?.pass_marks || 0);
+                      
                       return (
                         <tr key={attempt.id} className="hover:bg-[#FAF9F5] transition">
                           <td className="px-6 py-4 font-bold text-[#2D3234]">{attempt.exams?.title}</td>
                           <td className="px-6 py-4 text-[#687074]">{new Date(attempt.started_at).toLocaleDateString()}</td>
-                          <td className="px-6 py-4">{attempt.score ?? '-'} / {attempt.exams?.total_marks ?? '-'}</td>
-                          <td className="px-6 py-4 font-extrabold text-[#2D3234]">{attempt.percentage ? `${attempt.percentage}%` : '-'}</td>
+                          
+                          {/* Hide scores if results are not published by admin yet */}
+                          <td className="px-6 py-4">
+                            {attempt.exams?.results_published !== false 
+                              ? `${attempt.score ?? '-'} / ${attempt.exams?.total_marks ?? '-'}`
+                              : '—'}
+                          </td>
+                          <td className="px-6 py-4 font-extrabold text-[#2D3234]">
+                            {attempt.exams?.results_published !== false 
+                              ? (attempt.percentage ? `${attempt.percentage}%` : '-')
+                              : '—'}
+                          </td>
+
                           <td className="px-6 py-4">
                             {attempt.status === 'completed' ? (
-                              <span className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold tracking-wider ${
-                                isPass ? 'bg-[#EBF4EE] text-[#426E4E] border border-[#D1E6D6]' : 'bg-[#F9EDED] text-[#A63B3B] border border-[#F2D1D1]'
-                              }`}>
-                                {isPass ? 'PASSED' : 'FAILED'}
-                              </span>
+                              attempt.exams?.results_published !== false ? (
+                                <span className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold tracking-wider ${
+                                  isPass ? 'bg-[#EBF4EE] text-[#426E4E] border border-[#D1E6D6]' : 'bg-[#F9EDED] text-[#A63B3B] border border-[#F2D1D1]'
+                                }`}>
+                                  {isPass ? 'PASSED' : 'FAILED'}
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-md text-[10px] font-extrabold tracking-wider bg-[#E9EFF0] text-[#3B5758] border border-[#D5E1E2]">
+                                  EVALUATING
+                                </span>
+                              )
                             ) : (
                               <span className="px-2.5 py-1 rounded-md text-[10px] font-extrabold tracking-wider bg-[#FDF6EB] text-[#A67527] border border-[#F3DEB8]">
                                 IN PROGRESS
                               </span>
                             )}
                           </td>
+
                           <td className="px-6 py-4 text-right">
                             {attempt.status === 'completed' ? (
-                              <button
-                                onClick={() => navigate(`/results/${attempt.id}`)}
-                                className="text-[#4A6B6C] hover:text-[#3B5758] font-extrabold underline underline-offset-2"
-                              >
-                                View Scorecard
-                              </button>
+                              attempt.exams?.results_published !== false ? (
+                                <button
+                                  onClick={() => navigate(`/results/${attempt.id}`)}
+                                  className="text-[#4A6B6C] hover:text-[#3B5758] font-extrabold underline underline-offset-2"
+                                >
+                                  View Scorecard
+                                </button>
+                              ) : (
+                                <span className="text-[#9AA1A6] text-[10px] font-bold italic uppercase tracking-wider">
+                                  Pending Review
+                                </span>
+                              )
                             ) : (
                               <button
                                 onClick={() => navigate(`/exam/${attempt.exam_id}`)}
