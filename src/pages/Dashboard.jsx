@@ -104,35 +104,39 @@ export const Dashboard = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
         
-        {/* KPI OVERVIEW */}
+      {/* KPI OVERVIEW */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-[#E8E4D9] shadow-sm flex items-center gap-4">
-            <div className="p-3.5 bg-[#EBF4EE] text-[#426E4E] rounded-xl">
-              <CheckCircle2 className="w-6 h-6" />
+          
+          {/* Card 1: Vibrant Forest Green */}
+          <div className="bg-[#426E4E] p-6 rounded-2xl shadow-md flex items-center gap-4 text-white transition-transform hover:-translate-y-1 duration-300">
+            <div className="p-3.5 bg-white/20 rounded-xl backdrop-blur-sm">
+              <CheckCircle2 className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-[11px] font-bold text-[#687074] uppercase tracking-wider">Completed Tests</p>
-              <h3 className="text-2xl font-extrabold text-[#2D3234] mt-0.5">{completedAttempts.length}</h3>
+              <p className="text-[11px] font-bold text-[#D1E6D6] uppercase tracking-wider">Completed Tests</p>
+              <h3 className="text-2xl font-extrabold mt-0.5">{completedAttempts.length}</h3>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-[#E8E4D9] shadow-sm flex items-center gap-4">
-            <div className="p-3.5 bg-[#FBECE7] text-[#D97757] rounded-xl">
-              <TrendingUp className="w-6 h-6" />
+          {/* Card 2: Bold Terracotta */}
+          <div className="bg-[#D97757] p-6 rounded-2xl shadow-md flex items-center gap-4 text-white transition-transform hover:-translate-y-1 duration-300">
+            <div className="p-3.5 bg-white/20 rounded-xl backdrop-blur-sm">
+              <TrendingUp className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-[11px] font-bold text-[#687074] uppercase tracking-wider">Average Performance</p>
-              <h3 className="text-2xl font-extrabold text-[#2D3234] mt-0.5">{avgScore}%</h3>
+              <p className="text-[11px] font-bold text-[#FBECE7] uppercase tracking-wider">Average Performance</p>
+              <h3 className="text-2xl font-extrabold mt-0.5">{avgScore}%</h3>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-[#E8E4D9] shadow-sm flex items-center gap-4">
-            <div className="p-3.5 bg-[#E9EFF0] text-[#4A6B6C] rounded-xl">
-              <BookOpen className="w-6 h-6" />
+          {/* Card 3: Deep Charcoal */}
+          <div className="bg-[#2D3234] p-6 rounded-2xl shadow-md flex items-center gap-4 text-white transition-transform hover:-translate-y-1 duration-300">
+            <div className="p-3.5 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
+              <BookOpen className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-[11px] font-bold text-[#687074] uppercase tracking-wider">Available Assessments</p>
-              <h3 className="text-2xl font-extrabold text-[#2D3234] mt-0.5">{filteredExams.length}</h3>
+              <p className="text-[11px] font-bold text-[#9AA1A6] uppercase tracking-wider">Available Assessments</p>
+              <h3 className="text-2xl font-extrabold mt-0.5">{filteredExams.length}</h3>
             </div>
           </div>
         </div>

@@ -68,7 +68,6 @@ app.get('/api/admin/exams/:id/results', async (req, res) => {
       .from('profiles')
       .select('id, full_name, email')
       .in('id', userIds);
-
     const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
 
     // 1. Merge Profiles and calculate Accuracy
@@ -101,6 +100,115 @@ app.get('/api/admin/exams/:id/results', async (req, res) => {
   } catch (err) {
     console.error('[Admin Results Error]:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/results/:attemptId
+ * Student Result & Leaderboard Route (Privacy-Preserved)
+ * Only returns Rank #1 (Topper) and the current student's personal rank.
+ */
+app.get('/api/results/:attemptId', async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+
+    // 1. Fetch this attempt and its exam publication status
+    const { data: attempt, error: attErr } = await supabaseAdmin
+      .from('exam_attempts')
+      .select('id, user_id, exam_id, status, score, percentage, submitted_at, exams(id, title, total_marks, pass_marks, results_published)')
+      .eq('id', attemptId)
+      .single();
+
+      if (attErr || !attempt) {
+        console.error('[Supabase Fetch Error]:', attErr); // <-- This prints the real error in your terminal
+        return res.status(404).json({ error: 'Assessment attempt not found.' });
+      }
+
+    // 2. Block display if results are not published yet
+    if (!attempt.exams?.results_published) {
+      return res.json({
+        published: false,
+        examTitle: attempt.exams?.title,
+        message: 'Assessment results have not been released by the administrator yet.'
+      });
+    }
+
+    // 3. Fetch all completed attempts for this exam to calculate relative rank
+    const { data: allAttempts, error: allErr } = await supabaseAdmin
+      .from('exam_attempts')
+      .select('id, user_id, score, percentage, status, total_attempted, correct_answers, incorrect_answers')
+      .eq('exam_id', attempt.exam_id)
+      .eq('status', 'completed');
+
+    if (allErr) throw allErr;
+
+    // 4. Fetch candidate profiles for names
+    const userIds = (allAttempts || []).map((a) => a.user_id);
+    const { data: profiles } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', userIds);
+
+    const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+
+    // 5. Calculate accuracy and sort using tie-breaker rules
+    let ranked = (allAttempts || []).map((a) => {
+      const accuracy = a.total_attempted > 0 ? (a.correct_answers / a.total_attempted) * 100 : 0;
+      return {
+        id: a.id,
+        userId: a.user_id,
+        candidateName: profileMap.get(a.user_id)?.full_name || 'Candidate',
+        score: a.score ?? 0,
+        percentage: a.percentage ?? 0,
+        accuracy: accuracy,
+        totalAttempted: a.total_attempted ?? 0,
+        correctAnswers: a.correct_answers ?? 0,
+        incorrectAnswers: a.incorrect_answers ?? 0
+      };
+    });
+
+    ranked.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.incorrectAnswers !== b.incorrectAnswers) return a.incorrectAnswers - b.incorrectAnswers; 
+      if (b.correctAnswers !== a.correctAnswers) return b.correctAnswers - a.correctAnswers;
+      if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+      return b.totalAttempted - a.totalAttempted; 
+    });
+
+    ranked = ranked.map((att, idx) => ({ ...att, rank: idx + 1 }));
+
+    // 6. Strict Privacy Filtering: ONLY Rank #1 and Current Student
+    const topper = ranked[0] || null;
+    const currentStudent = ranked.find((r) => r.id === attemptId) || null;
+
+    return res.json({
+      published: true,
+      examTitle: attempt.exams?.title,
+      totalMarks: attempt.exams?.total_marks,
+      passMarks: attempt.exams?.pass_marks,
+      totalCandidates: ranked.length,
+      topper: topper ? {
+        rank: 1,
+        candidateName: topper.candidateName,
+        score: topper.score,
+        percentage: topper.percentage,
+        accuracy: topper.accuracy
+      } : null,
+      student: currentStudent ? {
+        rank: currentStudent.rank,
+        candidateName: currentStudent.candidateName,
+        score: currentStudent.score,
+        percentage: currentStudent.percentage,
+        accuracy: currentStudent.accuracy,
+        totalAttempted: currentStudent.totalAttempted,
+        correctAnswers: currentStudent.correctAnswers,
+        incorrectAnswers: currentStudent.incorrectAnswers,
+        isTopper: currentStudent.rank === 1
+      } : null
+    });
+  } catch (err) {
+    console.error('[Student Results Error]:', err);
+    res.status(500).json({ error: 'Failed to retrieve assessment results.' });
   }
 });
 

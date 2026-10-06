@@ -459,23 +459,42 @@ export const Exam = () => {
       {/* MAIN CONTAINER */}
       <main className="max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6 items-start flex-1">
         
-        {/* QUESTION PANEL */}
+      {/* QUESTION PANEL */}
         <div className="lg:col-span-3 bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-8 shadow-sm flex flex-col justify-between min-h-[540px]">
           <div>
             <div className="flex justify-between items-center pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3"> {/* Increased gap for better spacing */}
+                
                 <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">
                   Question {currentIndex + 1} of {questions.length}
                 </span>
-                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
-                  isMulti ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-slate-100 text-slate-600'
-                }`}>
-                  {isMulti ? 'Multiple Options Correct' : 'Single Option Correct'}
+                
+                {/* 🔴 NEW: Highly Visible & Animated Question Type Indicator */}
+                <span 
+                  key={currentQ.id} /* This key forces the animation to replay on every next/prev click */
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider border shadow-sm transition-all animate-in fade-in zoom-in duration-300 ${
+                    isMulti 
+                      ? 'bg-[#FDF6EB] text-[#A67527] border-[#F3DEB8]' // Amber for Multiple Choice
+                      : 'bg-[#EBF4EE] text-[#426E4E] border-[#D1E6D6]' // Green for Single Choice
+                  }`}
+                >
+                  {isMulti ? (
+                    <>
+                      <span className="w-2 h-2 rounded-sm bg-[#A67527] animate-pulse shadow-sm"></span>
+                      Multiple Options Correct
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-[#426E4E] animate-pulse shadow-sm"></span>
+                      Single Option Correct
+                    </>
+                  )}
                 </span>
+                {/* 🔴 END NEW INDICATOR */}
+
               </div>
               <span className="text-xs font-semibold text-slate-400">{currentQ.marks} Mark(s)</span>
             </div>
-
             {/* Question Text */}
             <div className="py-5">
               <p className="text-base sm:text-lg text-slate-800 font-medium leading-relaxed">
